@@ -11,6 +11,7 @@ const steamInput      = document.getElementById('steamInput');
 const findBtn         = document.getElementById('findBtn');
 const clearBtn        = document.getElementById('clearBtn');
 const friendPickerBtn = document.getElementById('friendPickerBtn');
+const createPartyBtn  = document.getElementById('createPartyBtn');
 const statusSection   = document.getElementById('status');
 const progressBar     = document.getElementById('progressBar');
 const statusMsg       = document.getElementById('statusMsg');
@@ -47,17 +48,33 @@ async function initAuth() {
   currentUser = user;
 
   if (user) {
-    if (user.avatar) { userAvatar.src = user.avatar; }
+    if (user.avatar) userAvatar.src = user.avatar;
     userNameEl.textContent = user.name;
     userChip.classList.remove('hidden');
     loginBtn.classList.add('hidden');
     friendPickerBtn.classList.remove('hidden');
+    createPartyBtn.classList.remove('hidden');
     selfAvatarEl.src = user.avatar || '';
     selfNameEl.textContent = user.name;
   } else {
     loginBtn.classList.remove('hidden');
   }
 }
+
+/* ── Create Party ─────────────────────────────────────────────────────────────── */
+createPartyBtn.addEventListener('click', async () => {
+  createPartyBtn.disabled = true;
+  createPartyBtn.textContent = 'Creating…';
+  try {
+    const res = await fetch('/api/party', { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to create party');
+    const { id } = await res.json();
+    window.location.href = `/party/${id}`;
+  } catch {
+    createPartyBtn.disabled = false;
+    createPartyBtn.textContent = 'Create Party';
+  }
+});
 
 /* ── Friend picker ────────────────────────────────────────────────────────────── */
 friendPickerBtn.addEventListener('click', openFriendPicker);
@@ -125,17 +142,14 @@ function renderFriendList() {
     nameSpan.className = 'friend-name';
     nameSpan.textContent = friend.name;
 
+    label.appendChild(cb);
+    label.appendChild(avatar);
+    label.appendChild(nameSpan);
+
     if (friend.online) {
       const dot = document.createElement('span');
       dot.className = 'online-dot';
-      label.appendChild(cb);
-      label.appendChild(avatar);
-      label.appendChild(nameSpan);
       label.appendChild(dot);
-    } else {
-      label.appendChild(cb);
-      label.appendChild(avatar);
-      label.appendChild(nameSpan);
     }
 
     friendList.appendChild(label);
@@ -154,15 +168,10 @@ function updateSelectedCount() {
 
 function applySelection() {
   const lines = [];
-
-  if (includeSelf.checked && currentUser) {
-    lines.push(currentUser.steamid);
-  }
-
+  if (includeSelf.checked && currentUser) lines.push(currentUser.steamid);
   for (const cb of friendList.querySelectorAll('input[type=checkbox]:checked')) {
     lines.push(cb.value);
   }
-
   steamInput.value = lines.join('\n');
   closePicker();
 }
@@ -202,41 +211,16 @@ function startSearch() {
       throw new Error(body?.error || `Server error: ${res.status}`);
     }
     if (!res.body) throw new Error('No response body');
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    function pump() {
-      return reader.read().then(({ done, value }) => {
-        if (done) { findBtn.disabled = false; return; }
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop();
-        for (const part of parts) handleSSE(part);
-        return pump();
-      });
-    }
-    return pump();
+    return readSseStream(res, ({ event, data }) => handleGameEvent(event, data));
+  }).then(() => {
+    findBtn.disabled = false;
   }).catch(err => {
     showError(err.message);
     findBtn.disabled = false;
   });
 }
 
-function handleSSE(raw) {
-  const lines = raw.trim().split('\n');
-  let event = 'message';
-  let dataStr = '';
-  for (const line of lines) {
-    if (line.startsWith('event: ')) event = line.slice(7);
-    else if (line.startsWith('data: ')) dataStr = line.slice(6);
-  }
-  if (!dataStr) return;
-
-  let data;
-  try { data = JSON.parse(dataStr); } catch { return; }
-
+function handleGameEvent(event, data) {
   switch (event) {
     case 'progress':
       setProgress((data.step / data.total) * 90, data.message);
@@ -280,13 +264,11 @@ function renderAccounts({ privateAccounts, publicAccounts, resolutionErrors }) {
   if (resolutionErrors?.length) {
     const div = document.createElement('div');
     div.className = 'error-banner';
-    div.innerHTML = `<strong>Could not resolve:</strong> ${resolutionErrors.map(e => e.error).join('; ')}`;
+    div.innerHTML = `<strong>Could not resolve:</strong> ${resolutionErrors.map(e => escHtml(e.error)).join('; ')}`;
     privateWarnings.appendChild(div);
   }
 
-  if (privateAccounts?.length) {
-    appendPrivateAccounts(privateAccounts);
-  }
+  if (privateAccounts?.length) appendPrivateAccounts(privateAccounts);
 
   for (const acc of (publicAccounts || [])) {
     publicAccountsEl.appendChild(makeAccountChip(acc));
@@ -313,17 +295,7 @@ function appendPrivateAccounts(accounts) {
   }
 }
 
-function makeAccountChip(acc) {
-  const chip = document.createElement('div');
-  chip.className = 'account-chip';
-  const avatarEl = acc.avatar
-    ? `<img src="${acc.avatar}" alt="${escHtml(acc.name)}" />`
-    : `<div class="avatar-placeholder">${(acc.name || '?')[0].toUpperCase()}</div>`;
-  chip.innerHTML = `${avatarEl}<span>${escHtml(acc.name || acc.steamid)}</span>`;
-  return chip;
-}
-
-function renderResults({ commonGames, totalCommon, multiplayerCount, message }) {
+function renderResults({ commonGames, message }) {
   resultsSection.classList.remove('hidden');
 
   if (message && !commonGames?.length) {
@@ -338,9 +310,7 @@ function renderResults({ commonGames, totalCommon, multiplayerCount, message }) 
 function renderGames() {
   let games = [...allGames];
 
-  if (filterText) {
-    games = games.filter(g => g.name.toLowerCase().includes(filterText));
-  }
+  if (filterText) games = games.filter(g => g.name.toLowerCase().includes(filterText));
 
   if (currentSort === 'name') {
     games.sort((a, b) => a.name.localeCompare(b.name));
@@ -358,45 +328,7 @@ function renderGames() {
   }
 
   gameGrid.innerHTML = '';
-  for (const game of games) {
-    gameGrid.appendChild(makeGameCard(game));
-  }
-}
-
-function makeGameCard(game) {
-  const card = document.createElement('div');
-  card.className = 'game-card';
-
-  const cats = (game.categories || [])
-    .map(c => `<span class="cat-tag">${escHtml(c)}</span>`)
-    .join('');
-
-  const playtimeRows = (game.playtimeInfo || []).map(p => {
-    const avatarEl = p.avatar
-      ? `<img src="${p.avatar}" alt="${escHtml(p.name)}" />`
-      : `<div class="avatar-sm">${(p.name || '?')[0].toUpperCase()}</div>`;
-    const hoursClass = p.hours === 0 ? 'zero' : '';
-    const hoursLabel = p.hours === 0 ? 'Never played' : `${p.hours}h`;
-    return `<div class="playtime-row">${avatarEl}<span>${escHtml(p.name)}</span><span class="playtime-hours ${hoursClass}">${hoursLabel}</span></div>`;
-  }).join('');
-
-  card.innerHTML = `
-    <div class="game-img-wrap">
-      <img class="loading" src="${escHtml(game.headerImage)}" alt="${escHtml(game.name)}" loading="lazy" />
-    </div>
-    <div class="game-body">
-      <div class="game-name">${escHtml(game.name)}</div>
-      <div class="game-categories">${cats}</div>
-      <div class="playtime-list">${playtimeRows}</div>
-    </div>
-    <a class="store-link" href="${escHtml(game.storeUrl)}" target="_blank" rel="noopener">View on Steam Store &#8599;</a>
-  `;
-
-  const img = card.querySelector('img');
-  img.addEventListener('load', () => img.classList.remove('loading'));
-  img.addEventListener('error', () => { img.style.display = 'none'; });
-
-  return card;
+  for (const game of games) gameGrid.appendChild(makeGameCard(game));
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
@@ -432,15 +364,6 @@ function clearAll() {
   resetUI();
   statusSection.classList.add('hidden');
   findBtn.disabled = false;
-}
-
-function escHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 /* ── Init ────────────────────────────────────────────────────────────────────── */

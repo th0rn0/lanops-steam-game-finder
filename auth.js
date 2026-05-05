@@ -17,11 +17,22 @@ module.exports = function setupAuth(app, { apiKey, baseUrl }) {
     });
   }));
 
-  app.get('/auth/steam', passport.authenticate('steam', { failureRedirect: '/' }));
+  app.get('/auth/steam', (req, res, next) => {
+    if (req.query.returnTo) {
+      // Validate returnTo is a relative path to prevent open redirect
+      const returnTo = req.query.returnTo;
+      if (/^\/[^/\\]/.test(returnTo)) req.session.returnTo = returnTo;
+    }
+    passport.authenticate('steam')(req, res, next);
+  });
 
   app.get('/auth/steam/return',
     passport.authenticate('steam', { failureRedirect: '/' }),
-    (req, res) => res.redirect('/')
+    (req, res) => {
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo;
+      res.redirect(returnTo);
+    }
   );
 
   app.get('/auth/logout', (req, res, next) => {
