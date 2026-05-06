@@ -38,6 +38,7 @@ function makeGameCard(game) {
 
   card.innerHTML = `
     <div class="game-img-wrap">
+      ${game.free ? '<span class="free-tag">FREE</span>' : ''}
       <img class="loading" src="${escHtml(game.headerImage)}" alt="${escHtml(game.name)}" loading="lazy" />
     </div>
     <div class="game-body">

@@ -455,6 +455,46 @@ select:focus { outline: none; border-color: var(--accent2); }
 }
 .store-link:hover { background: rgba(27,141,255,0.08); }
 
+/* ── Free tag (badge on card image) ──────────────────────────────────────── */
+.free-tag {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.15em 0.55em;
+  border-radius: 4px;
+  z-index: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Free games section ───────────────────────────────────────────────────── */
+.free-games-section {
+  border-top: 2px solid rgba(63, 185, 80, 0.2);
+  padding-top: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.section-desc {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.free-badge-count { background: var(--success); }
+
+.loading-msg {
+  animation: pulse-text 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* ── No results ───────────────────────────────────────────────────────────── */
 .no-results {
   text-align: center;

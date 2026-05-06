@@ -6,6 +6,7 @@ const session = require('express-session');
 const passport = require('passport');
 const setupAuth = require('./auth');
 const { runGameSearch, isMultiplayer, normaliseSteamInput: _normaliseSteamInput, Semaphore } = require('./lib/gameSearch');
+const { getFreeMultiplayerGames } = require('./lib/freeGames');
 const partyStore = require('./lib/partyStore');
 
 const app = express();
@@ -237,6 +238,18 @@ app.get('/api/party/:id/games', async (req, res) => {
   res.end();
 });
 
+// ── API: free multiplayer games ───────────────────────────────────────────────
+
+app.get('/api/free-games', async (req, res) => {
+  try {
+    const games = await getFreeMultiplayerGames();
+    res.json({ games });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch free games.' });
+  }
+});
+
 // ── Party page route ──────────────────────────────────────────────────────────
 
 app.get('/party/:id', (req, res) => {
@@ -251,6 +264,8 @@ if (require.main === module) {
     if (!STEAM_API_KEY) {
       console.warn('WARNING: STEAM_API_KEY is not set. Copy .env.example to .env and add your key.');
     }
+    // Pre-warm free games cache in the background
+    getFreeMultiplayerGames().catch(err => console.error('Free games warm-up failed:', err.message));
   });
 }
 

@@ -322,8 +322,10 @@ function renderGames() {
   if (filterText) games = games.filter(g => g.name.toLowerCase().includes(filterText));
   if (currentSort === 'name') {
     games.sort((a, b) => a.name.localeCompare(b.name));
-  } else {
+  } else if (currentSort === 'cumulative') {
     games.sort((a, b) => b.totalMinutes - a.totalMinutes);
+  } else {
+    games.sort((a, b) => b.avgHours - a.avgHours);
   }
 
   gameCountEl.textContent = `${games.length} game${games.length !== 1 ? 's' : ''}`;
