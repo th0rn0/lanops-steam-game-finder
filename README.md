@@ -20,7 +20,8 @@ Built with Vodka and Hatred by [Th0rn0](https://www.th0rn0.co.uk) for [LanOps](h
 - **Playtime breakdown** — shows each player's hours per game, sorted by group total playtime
 - **Private account handling** — private/inaccessible accounts are excluded gracefully with a warning
 - **Game detail caching** — store API results are cached locally for 30 days to keep things fast
-- **Filter and sort** — filter by name, sort by playtime or alphabetically
+- **Free multiplayer games** — always-visible section shows top free-to-play Steam titles; no library overlap required, cached for 6 hours
+- **Filter and sort** — filter by name, sort by average playtime, cumulative playtime, or alphabetically
 
 ---
 
