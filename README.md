@@ -188,6 +188,51 @@ docker run -d \
   th0rn0/lanops-steam-game-finder:latest
 ```
 
+### Docker Compose
+
+Create a `docker-compose.yml` in any directory:
+
+```yaml
+services:
+  lanops-steam-game-finder:
+    image: th0rn0/lanops-steam-game-finder:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      STEAM_API_KEY: your_steam_api_key_here
+      SESSION_SECRET: change-me-to-a-random-string
+      BASE_URL: http://localhost:3000
+    volumes:
+      - ./cache:/app/cache
+      - ./data:/app/data
+```
+
+Then start it:
+
+```bash
+docker compose up -d
+```
+
+The `cache` volume persists Steam game detail lookups (30-day TTL) and `data` persists party links across container restarts. Both directories are created automatically on first run.
+
+To use a `.env` file instead of inline environment variables:
+
+```yaml
+services:
+  lanops-steam-game-finder:
+    image: th0rn0/lanops-steam-game-finder:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    volumes:
+      - ./cache:/app/cache
+      - ./data:/app/data
+```
+
+Copy `.env.example` to `.env` and fill in your values.
+
 ---
 
 ## Configuration
