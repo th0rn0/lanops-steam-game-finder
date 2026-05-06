@@ -6,6 +6,7 @@ const session = require('express-session');
 const passport = require('passport');
 const setupAuth = require('./auth');
 const { runGameSearch, isMultiplayer, normaliseSteamInput: _normaliseSteamInput, Semaphore } = require('./lib/gameSearch');
+const { runGameSearchSync } = require('./lib/searchApi');
 const { getFreeMultiplayerGames } = require('./lib/freeGames');
 const partyStore = require('./lib/partyStore');
 
@@ -236,6 +237,43 @@ app.get('/api/party/:id/games', async (req, res) => {
   }
 
   res.end();
+});
+
+// ── REST API: search (v1) ─────────────────────────────────────────────────────
+
+// If API_KEY env is set, all /api/v1/* requests must supply it via
+// X-Api-Key header or Authorization: Bearer <key>.
+function requireApiKey(req, res, next) {
+  const configuredKey = process.env.API_KEY;
+  if (!configuredKey) return next();
+
+  const header = req.headers['x-api-key'] ||
+    (req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.slice(7)
+      : null);
+
+  if (!header) return res.status(401).json({ error: 'API key required. Set X-Api-Key header or Authorization: Bearer <key>.' });
+  if (header !== configuredKey) return res.status(403).json({ error: 'Invalid API key.' });
+  next();
+}
+
+app.post('/api/v1/search', requireApiKey, async (req, res) => {
+  if (!STEAM_API_KEY) {
+    return res.status(500).json({ error: 'STEAM_API_KEY is not configured on the server.' });
+  }
+
+  const { steamIds } = req.body;
+  if (!Array.isArray(steamIds) || steamIds.filter(Boolean).length < 2) {
+    return res.status(400).json({ error: 'Provide at least 2 Steam IDs in the steamIds array.' });
+  }
+
+  try {
+    const result = await runGameSearchSync(steamIds, STEAM_API_KEY);
+    res.json(result);
+  } catch (err) {
+    console.error('API search error:', err.message);
+    res.status(502).json({ error: err.message || 'Failed to fetch game data from Steam.' });
+  }
 });
 
 // ── API: free multiplayer games ───────────────────────────────────────────────

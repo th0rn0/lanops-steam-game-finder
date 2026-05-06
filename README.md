@@ -245,6 +245,7 @@ All configuration is via environment variables.
 | `PORT` | No | `3000` | Port the HTTP server listens on |
 | `BASE_URL` | No | `http://localhost:PORT` | Public-facing URL — must match the registered Steam OpenID return URL |
 | `SESSION_SECRET` | No | `lanops-secret` | Secret for signing session cookies. Change this in any non-local deployment. |
+| `API_KEY` | No | — | If set, `POST /api/v1/search` requires this key via `X-Api-Key` header or `Authorization: Bearer <key>`. Leave unset to allow open access. |
 
 ### Steam API key
 
@@ -262,6 +263,74 @@ BASE_URL=https://games.yourdomain.com
 ```
 
 Mismatched `BASE_URL` will cause Steam login to fail with a redirect mismatch error.
+
+---
+
+## REST API
+
+The server exposes a JSON REST endpoint for programmatic access alongside the web UI.
+
+### `POST /api/v1/search`
+
+Find common multiplayer games for a list of Steam users.
+
+**Request**
+
+```json
+{
+  "steamIds": ["76561197960287930", "yourvanityname", "https://steamcommunity.com/id/someone"]
+}
+```
+
+Each entry can be a Steam64 ID, a vanity URL name, or a full Steam profile URL. At least 2 entries are required.
+
+**Response**
+
+```json
+{
+  "commonGames": [
+    {
+      "appId": 730,
+      "name": "Counter-Strike 2",
+      "headerImage": "https://cdn.akamai.steamstatic.com/steam/apps/730/header.jpg",
+      "storeUrl": "https://store.steampowered.com/app/730/",
+      "categories": ["Multi-player", "Online PvP"],
+      "playtimeInfo": [
+        { "name": "Alice", "avatar": "...", "minutes": 600, "hours": 10 }
+      ],
+      "totalMinutes": 900,
+      "avgHours": 7.5
+    }
+  ],
+  "publicAccounts": [...],
+  "privateAccounts": [...],
+  "resolutionErrors": [...]
+}
+```
+
+`privateAccounts` contains accounts that were private or had inaccessible libraries. `resolutionErrors` lists inputs that could not be resolved to a Steam ID.
+
+**Authentication**
+
+If `API_KEY` is set in the environment, all requests must include the key:
+
+```
+X-Api-Key: your-key-here
+# or
+Authorization: Bearer your-key-here
+```
+
+Returns `401` when no key is provided and `403` when the key is wrong. If `API_KEY` is unset the endpoint is open.
+
+**curl example**
+
+```bash
+curl -s -X POST http://localhost:3000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -H 'X-Api-Key: your-key-here' \
+  -d '{"steamIds": ["76561197960287930", "76561197960287931"]}' \
+  | jq '.commonGames[].name'
+```
 
 ---
 
