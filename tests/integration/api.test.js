@@ -258,3 +258,50 @@ describe('POST /api/find-games — SSE stream', () => {
     expect(errorEvent.data.message).toBeTruthy();
   });
 });
+
+// ── GET /api/free-games ───────────────────────────────────────────────────────
+
+describe('GET /api/free-games', () => {
+  it('returns 200 with games array', async () => {
+    nock('https://store.steampowered.com')
+      .get('/search/results/')
+      .query(true)
+      .reply(200, {
+        items: [
+          { logo: 'https://cdn.akamai.steamstatic.com/steam/apps/440/header.jpg', name: 'Team Fortress 2' },
+        ],
+      });
+
+    nock('https://store.steampowered.com')
+      .get('/api/appdetails')
+      .query(true)
+      .reply(200, {
+        440: {
+          success: true,
+          data: {
+            type: 'game',
+            name: 'Team Fortress 2',
+            is_free: true,
+            categories: [{ id: 1, description: 'Multi-player' }],
+          },
+        },
+      });
+
+    const res = await request(app).get('/api/free-games');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('games');
+    expect(Array.isArray(res.body.games)).toBe(true);
+  });
+
+  it('returns 200 with empty array when Steam search fails', async () => {
+    nock('https://store.steampowered.com')
+      .get('/search/results/')
+      .query(true)
+      .replyWithError('connection refused');
+
+    const res = await request(app).get('/api/free-games');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('games');
+    expect(Array.isArray(res.body.games)).toBe(true);
+  });
+});
