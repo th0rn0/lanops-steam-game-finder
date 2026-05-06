@@ -120,21 +120,28 @@ function sortGames(games, mode) {
   const sorted = [...games];
   if (mode === 'name') {
     sorted.sort((a, b) => a.name.localeCompare(b.name));
-  } else {
+  } else if (mode === 'cumulative') {
     sorted.sort((a, b) => b.totalMinutes - a.totalMinutes);
+  } else {
+    sorted.sort((a, b) => b.avgHours - a.avgHours);
   }
   return sorted;
 }
 
 describe('sortGames', () => {
   const games = [
-    { name: 'Zork', totalMinutes: 10 },
-    { name: 'Apex', totalMinutes: 500 },
-    { name: 'Minecraft', totalMinutes: 200 },
+    { name: 'Zork',      avgHours: 1,  totalMinutes: 60  },
+    { name: 'Apex',      avgHours: 50, totalMinutes: 3000 },
+    { name: 'Minecraft', avgHours: 20, totalMinutes: 500 },
   ];
 
-  it('sorts by playtime descending', () => {
+  it('sorts by average playtime (avgHours) descending', () => {
     const sorted = sortGames(games, 'playtime');
+    expect(sorted.map(g => g.name)).toEqual(['Apex', 'Minecraft', 'Zork']);
+  });
+
+  it('sorts by cumulative playtime (totalMinutes) descending', () => {
+    const sorted = sortGames(games, 'cumulative');
     expect(sorted.map(g => g.name)).toEqual(['Apex', 'Minecraft', 'Zork']);
   });
 

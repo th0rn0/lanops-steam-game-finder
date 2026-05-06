@@ -11,6 +11,8 @@ Built with Vodka and Hatred by [Th0rn0](https://www.th0rn0.co.uk) for [LanOps](h
 ## Features
 
 - **Common game finder** — intersects multiple Steam libraries and filters to multiplayer-only titles
+- **Steam party links** — create a shareable URL; friends join by logging in with Steam and their library is added automatically
+- **Real-time updates** — party member list updates live as friends join; game results refresh on demand
 - **Real-time progress** — server-sent events stream progress as libraries are fetched and checked
 - **Steam login** — sign in with your Steam account to pick friends directly from your friend list
 - **Friend picker** — searchable modal with online status indicators; includes yourself by default
@@ -18,7 +20,8 @@ Built with Vodka and Hatred by [Th0rn0](https://www.th0rn0.co.uk) for [LanOps](h
 - **Playtime breakdown** — shows each player's hours per game, sorted by group total playtime
 - **Private account handling** — private/inaccessible accounts are excluded gracefully with a warning
 - **Game detail caching** — store API results are cached locally for 30 days to keep things fast
-- **Filter and sort** — filter by name, sort by playtime or alphabetically
+- **Free multiplayer games** — always-visible section shows top free-to-play Steam titles; no library overlap required, cached for 6 hours
+- **Filter and sort** — filter by name, sort by average playtime, cumulative playtime, or alphabetically
 
 ---
 
@@ -122,6 +125,18 @@ The friend picker lets you:
 ![Friend picker](docs/screenshots/friend-picker.png)
 
 The **Use selected** button is only enabled once you have at least 2 people selected.
+
+### Steam party links
+
+**Creating a party** — sign in with Steam, then click **Create Party** (visible in the top-right next to your username). This creates a unique party URL and redirects you to it.
+
+**Sharing** — copy the link from the party page and send it to friends.
+
+**Joining** — friends open the link and click **Join Party**. If they aren't signed in, they'll be prompted to sign in with Steam first and then land back on the party page. Each person who joins adds their Steam library to the comparison.
+
+**Finding games** — as soon as the party has 2+ members, the app automatically searches for common multiplayer games. When a new member joins, a **Refresh Results** button appears to re-run the search including their library.
+
+**Leaving or deleting** — members can leave at any time. The party owner can delete it, which removes it immediately for all viewers. Parties expire automatically after 24 hours.
 
 ### Reading the results
 
@@ -239,11 +254,17 @@ The `proxy_buffering off` line is important. Without it, nginx buffers the SSE s
 
 ```
 lanops-steam-game-finder/
-├── server.js          # Express app, Steam API calls, SSE endpoint
+├── server.js          # Express app — routes, party SSE broadcast
 ├── auth.js            # Steam OpenID passport strategy and auth routes
+├── lib/
+│   ├── gameSearch.js  # All Steam API logic + runGameSearch() — reused by main and party routes
+│   └── partyStore.js  # Party CRUD with file persistence (data/parties.json)
 ├── public/
-│   ├── index.html     # Single-page UI
-│   ├── app.js         # Frontend JS — search flow, friend picker, rendering
+│   ├── index.html     # Main page
+│   ├── app.js         # Main page JS — search flow, friend picker
+│   ├── party.html     # Party page
+│   ├── party.js       # Party page JS — join flow, live member updates, game search
+│   ├── common.js      # Shared frontend utilities: escHtml, makeGameCard, readSseStream
 │   └── style.css      # All styles
 ├── tests/
 │   ├── setup.js       # Jest environment variables
@@ -285,6 +306,16 @@ Tests use `jest`, `supertest`, and `nock`. No network calls are made during the 
 6. Results stream back to the browser via SSE as each step completes
 
 Game detail lookups are cached in `cache/game-details.json` for 30 days.
+
+The search logic lives in `lib/gameSearch.js` and is called by both the main page (`POST /api/find-games`) and the party page (`GET /api/party/:id/games`). Both routes pipe SSE events back to the client using the same `runGameSearch(steamIds, apiKey, onEvent)` function.
+
+### How parties work
+
+Parties are stored in `data/parties.json` with a 24-hour TTL. Each party has an ID (8-char hex), an owner, and a list of members (Steam ID + name + avatar).
+
+The party page connects to `GET /api/party/:id/events` — a persistent SSE stream. When someone joins or leaves, the server pushes `member-joined` / `member-left` events to all connected clients so the member list updates in real time without polling.
+
+Game search on the party page (`GET /api/party/:id/games`) uses the current party member list as inputs and reuses `runGameSearch` exactly as the main page does.
 
 ### Adding a multiplayer category
 

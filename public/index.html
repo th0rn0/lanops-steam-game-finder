@@ -27,6 +27,7 @@
       <div id="userChip" class="user-chip hidden">
         <img id="userAvatar" src="" alt="" />
         <span id="userName"></span>
+        <button id="createPartyBtn" class="btn-create-party hidden">Create Party</button>
         <a href="/auth/logout" class="logout-link">Sign out</a>
       </div>
     </div>
@@ -73,6 +74,7 @@
             <label for="sortSelect">Sort by</label>
             <select id="sortSelect">
               <option value="playtime">Average playtime</option>
+              <option value="cumulative">Cumulative playtime</option>
               <option value="name">Name (A–Z)</option>
             </select>
           </div>
@@ -80,6 +82,22 @@
         </div>
       </div>
       <div id="gameGrid" class="game-grid"></div>
+    </section>
+
+    <section id="freeGamesSection" class="free-games-section">
+      <div class="results-header">
+        <div>
+          <h2>Free Multiplayer Games</h2>
+          <p class="section-desc">Free-to-play on Steam — no library overlap needed</p>
+        </div>
+        <div class="results-meta">
+          <span id="freeGameCount" class="badge free-badge-count hidden"></span>
+          <input type="text" id="freeFilterInput" placeholder="Filter games…" class="filter-input" />
+        </div>
+      </div>
+      <div id="freeGameGrid" class="game-grid">
+        <p class="no-results loading-msg">Loading free games…</p>
+      </div>
     </section>
   </main>
 
@@ -115,6 +133,7 @@
     </div>
   </div>
 
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

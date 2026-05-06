@@ -1,6 +1,6 @@
 {
   "name": "lanops-steam-game-finder",
-  "version": "1.0.0",
+  "version": "1.1.0.0",
   "description": "Find multiplayer games everyone in your LanOPS group owns on Steam",
   "main": "server.js",
   "scripts": {
