@@ -5,8 +5,10 @@ let party = null;
 let allGames = [];
 let currentSort = 'playtime';
 let filterText = '';
+let freeFilterText = '';
 let searchInProgress = false;
 let memberCountAtLastSearch = 0;
+let allFreeGames = [];
 
 /* ── DOM refs ────────────────────────────────────────────────────────────────── */
 const partyNotFound   = document.getElementById('partyNotFound');
@@ -48,6 +50,10 @@ copyLinkBtn.addEventListener('click', async () => {
 /* ── Sort / filter ───────────────────────────────────────────────────────────── */
 sortSelect.addEventListener('change', () => { currentSort = sortSelect.value; renderGames(); });
 filterInput.addEventListener('input', () => { filterText = filterInput.value.toLowerCase(); renderGames(); });
+document.getElementById('freeFilterInput').addEventListener('input', e => {
+  freeFilterText = e.target.value.toLowerCase();
+  renderFreeGames();
+});
 
 /* ── Auth ────────────────────────────────────────────────────────────────────── */
 async function initAuth() {
@@ -369,6 +375,41 @@ function resetSearchUI() {
   gameGrid.innerHTML = '';
 }
 
+/* ── Free games ──────────────────────────────────────────────────────────────── */
+async function loadFreeGames() {
+  const grid = document.getElementById('freeGameGrid');
+  const countEl = document.getElementById('freeGameCount');
+
+  try {
+    const res = await fetch('/api/free-games');
+    if (!res.ok) throw new Error('Failed to fetch');
+    const { games } = await res.json();
+    allFreeGames = games || [];
+    countEl.textContent = `${allFreeGames.length} game${allFreeGames.length !== 1 ? 's' : ''}`;
+    countEl.classList.remove('hidden');
+    renderFreeGames();
+  } catch {
+    grid.innerHTML = '<p class="no-results">Could not load free games.</p>';
+  }
+}
+
+function renderFreeGames() {
+  const grid = document.getElementById('freeGameGrid');
+  let games = freeFilterText
+    ? allFreeGames.filter(g => g.name.toLowerCase().includes(freeFilterText))
+    : [...allFreeGames];
+
+  if (!games.length) {
+    grid.innerHTML = freeFilterText
+      ? `<p class="no-results">No games match "${escHtml(freeFilterText)}"</p>`
+      : '<p class="no-results">No free multiplayer games found.</p>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  for (const game of games) grid.appendChild(makeGameCard(game));
+}
+
 /* ── Init ────────────────────────────────────────────────────────────────────── */
 async function init() {
   await initAuth();
@@ -378,6 +419,7 @@ async function init() {
   renderParty();
   connectPartyEvents();
   maybeStartSearch();
+  loadFreeGames();
 }
 
 init();
